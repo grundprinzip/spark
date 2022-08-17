@@ -67,7 +67,7 @@ class SparkConnectStreamHandler(responseObserver: StreamObserver[Response]) exte
     val bbb = proto.Response.CSVBatch(rowCount = -1, data = textSchema ++ "\n" ++ data)
     val response = proto.Response(
       clientId = clientId,
-      resultType = proto.Response.ResultType.CsvBatch(bbb),
+      resultType = proto.Response.ResultType.CsvBatch(bbb)
       // metrics = Some(MetricGenerator.buildMetrics(rows.queryExecution.executedPlan))
     )
 

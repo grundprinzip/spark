@@ -27,6 +27,7 @@ import java.util.concurrent.TimeUnit
 import scala.collection.JavaConverters._
 import scala.concurrent.{ExecutionContext, Future}
 
+import org.apache.spark.{SparkContext, SparkEnv}
 import org.apache.spark.api.plugin.{DriverPlugin, ExecutorPlugin, PluginContext, SparkPlugin}
 import org.apache.spark.connect.proto
 import org.apache.spark.connect.proto.{
@@ -35,10 +36,9 @@ import org.apache.spark.connect.proto.{
   Response,
   SparkConnectServiceGrpc
 }
+import org.apache.spark.sql.{Dataset, SparkSession}
 import org.apache.spark.sql.execution.ExtendedMode
 import org.apache.spark.sql.sparkconnect.planner.SparkConnectPlanner
-import org.apache.spark.sql.{Dataset, SparkSession}
-import org.apache.spark.{SparkContext, SparkEnv}
 
 /**
  * The SparkConnectService Implementation.
@@ -153,8 +153,8 @@ object SparkConnectService {
  * This is the main entry point for Spark Connect.
  *
  * To decouple the build of Spark Connect and it's dependencies from the core of Spark, we implement
- * it as a Driver Plugin. To enable Spark Connect, simply make sure that the appropriate JAR is available
- * in the CLASSPATH and the driver plugin is configured to load this class.
+ * it as a Driver Plugin. To enable Spark Connect, simply make sure that the appropriate JAR is
+ * available in the CLASSPATH and the driver plugin is configured to load this class.
  */
 class SparkConnectPlugin extends SparkPlugin {
 

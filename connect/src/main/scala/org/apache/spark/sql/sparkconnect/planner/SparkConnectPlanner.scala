@@ -21,15 +21,15 @@ import org.apache.spark.connect.proto
 import org.apache.spark.sql.SparkSession
 import org.apache.spark.sql.catalyst.{expressions, plans}
 import org.apache.spark.sql.catalyst.analysis.{UnresolvedAlias, UnresolvedAttribute, UnresolvedFunction, UnresolvedRelation, UnresolvedStar}
-import org.apache.spark.sql.catalyst.expressions.Expression
+import org.apache.spark.sql.catalyst.expressions.{Attribute, AttributeReference, Expression}
 import org.apache.spark.sql.catalyst.plans.logical.{LogicalPlan, SubqueryAlias}
 import org.apache.spark.sql.catalyst.plans.logical
 import org.apache.spark.sql.types.{BinaryType, ByteType, DateType, DoubleType, FloatType, IntegerType, ShortType, TimestampType}
 
 final case class InvalidPlanInput(
-    private val message: String = "",
-    private val cause: Throwable = None.orNull)
-    extends Exception(message, cause)
+  private val message: String = "",
+  private val cause: Throwable = None.orNull)
+  extends Exception(message, cause)
 
 case class SparkConnectPlanner(plan: proto.Relation, session: SparkSession) {
 
@@ -49,6 +49,7 @@ case class SparkConnectPlanner(plan: proto.Relation, session: SparkSession) {
       case proto.Relation.RelType.Sort(r) => transformSort(r)
       case proto.Relation.RelType.Aggregate(r) => transformAggregate(r)
       case proto.Relation.RelType.Sql(r) => transformSql(r)
+      case proto.Relation.RelType.LocalRelation(r) => transformLocalRelation(r)
       case proto.Relation.RelType.Empty =>
         throw new IndexOutOfBoundsException("Expected Relation to be set, but is empty.")
       case _ => throw InvalidPlanInput(s"${rel.relType} not supported.")
@@ -60,8 +61,8 @@ case class SparkConnectPlanner(plan: proto.Relation, session: SparkSession) {
   }
 
   private def transformReadRel(
-      rel: proto.Read,
-      common: Option[proto.RelationCommon]): LogicalPlan = {
+    rel: proto.Read,
+    common: Option[proto.RelationCommon]): LogicalPlan = {
     val baseRelation = rel.readType match {
       case proto.Read.ReadType.NamedTable(t) =>
         val child = UnresolvedRelation(t.parts)
@@ -75,6 +76,12 @@ case class SparkConnectPlanner(plan: proto.Relation, session: SparkSession) {
     baseRelation
   }
 
+  private def transformLocalRelation(
+    rel: proto.LocalRelation): LogicalPlan = {
+    val attributes = rel.attributes.map(transformAttribute(_)).toSeq
+    new org.apache.spark.sql.catalyst.plans.logical.LocalRelation(attributes)
+  }
+
   private def transformFilter(rel: proto.Filter): LogicalPlan = {
     assert(rel.input.nonEmpty)
     val baseRel = transformRelation(rel.getInput)
@@ -82,8 +89,8 @@ case class SparkConnectPlanner(plan: proto.Relation, session: SparkSession) {
   }
 
   private def transformProject(
-      rel: proto.Project,
-      common: Option[proto.RelationCommon]): LogicalPlan = {
+    rel: proto.Project,
+    common: Option[proto.RelationCommon]): LogicalPlan = {
     val baseRel = transformRelation(rel.getInput)
     val projection = if (rel.expressions.isEmpty) {
       Seq(UnresolvedStar(Option.empty))
@@ -109,6 +116,10 @@ case class SparkConnectPlanner(plan: proto.Relation, session: SparkSession) {
       case proto.Expression.ExprType.UnresolvedFunction(f) => transformScalarFunction(f)
       case _ => throw InvalidPlanInput()
     }
+  }
+
+  private def transformAttribute(exp: proto.Expression.Attribute): Attribute = {
+    AttributeReference(exp.name, IntegerType, exp.nullability)()
   }
 
   /**
@@ -228,7 +239,7 @@ case class SparkConnectPlanner(plan: proto.Relation, session: SparkSession) {
   }
 
   private def transformAggregateExpression(
-      exp: proto.Aggregate.Measure): expressions.NamedExpression = {
+    exp: proto.Aggregate.Measure): expressions.NamedExpression = {
     val fun = exp.getFunction.name
     UnresolvedAlias(
       UnresolvedFunction(

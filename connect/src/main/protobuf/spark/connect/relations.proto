@@ -43,6 +43,7 @@ message Relation {
     Fetch fetch = 8;
     Aggregate aggregate = 9;
     Sql sql = 10;
+    LocalRelation localRelation = 11;
 
     Unknown unknown = 999;
   }
@@ -197,4 +198,11 @@ message Sort {
     SORT_NULLS_FIRST = 1;
     SORT_NULLS_LAST = 2;
   }
+}
+
+/**
+ LocalRelation does not require pre-register the relation into Spark.
+ */
+message LocalRelation {
+  repeated Expression.Attribute attributes = 1;
 }
